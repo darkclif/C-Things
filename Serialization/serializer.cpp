@@ -9,13 +9,20 @@
 #include <concepts>
 
 class Archive;
-template<typename T>
-concept BasicType = std::integral<T> || std::floating_point<T>;
 
+/**
+ *  Interface for class that needs to be serialized. Execute operator<< from Archive on each variable that needs to be saved.
+ */
 struct ISerializable
 {
     virtual void Serialize(Archive& archive) = 0;
 };
+
+/**
+ *  Base Archive type. You should derive from this.
+ */
+template<typename T>
+concept BasicType = std::integral<T> || std::floating_point<T>;
 
 class Archive
 {
@@ -214,7 +221,7 @@ void Archive::SerializeFromFile(ISerializable& _obj, const std::string& _path)
     _obj.Serialize(file);
 }
 
-//////////////////////////////////////
+////////////////////////////////////// EXAMPLE
 struct Foo : public ISerializable
 {
     int integer = 0;
@@ -234,6 +241,7 @@ struct Foo : public ISerializable
 
 int main()
 {
+    // Save Foo
     Foo f;
     f.integer = 2;
     f.str = "Hello";
@@ -243,10 +251,11 @@ int main()
     Archive::SerializeToFile(f, "hello.bin");
     printf("Wrote file!\n");
 
+    // Retrieve Foo
     Foo ff;
     Archive::SerializeFromFile(ff, "hello.bin");
     printf("Read file!\n");
-    printf("Data=[%d %s {", ff.integer, ff.str.c_str());
+    printf("Data=[%d '%s' {", ff.integer, ff.str.c_str());
     for(auto& v : ff.vector)
     {
         printf("%d, ", v);
@@ -254,7 +263,7 @@ int main()
     printf("}, {");
     for(auto& s : ff.vector_str)
     {
-        printf("%s, ", s.c_str());
+        printf("'%s', ", s.c_str());
     }
     printf("}]\n");
 
