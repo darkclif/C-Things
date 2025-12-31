@@ -1,10 +1,7 @@
 #include <string>
 #include <iostream>
 #include <fstream>
-#include <string>
-#include <iostream>
 #include <vector>
-#include <thread>
 #include <cassert>
 #include <concepts>
 
@@ -35,10 +32,7 @@ public:
     };
 
 public:
-    Archive(Mode _mode):
-        mode_{_mode}
-    {
-    }
+    Archive(Mode _mode);
 
     inline bool IsWrite() const { return (mode_ == Mode::Write); };
     inline bool IsRead() const { return (mode_ == Mode::Read); };
@@ -105,101 +99,29 @@ private:
     Mode mode_;
 };
 
+Archive::Archive(Mode _mode):
+    mode_{_mode}
+{
+}
+
 /**
  *  Archive that will serialize to file. You can make net-packet archive or to some other data container.
  */
 class FileArchive: public Archive
 {
 public:
-    FileArchive(const std::string& _path, Archive::Mode _mode):
-        Archive(_mode),
-        path_{ _path }
-    {
+    FileArchive(const std::string& _path, Archive::Mode _mode);
+    ~FileArchive();
 
-        const int ios_mode = (_mode == Archive::Mode::Read ? std::ios::in : std::ios::out);
-        file_ = std::unique_ptr<std::fstream>(new std::fstream(_path, ios_mode | std::ios::binary));
-        if (!IsStreamValid()) {
-            std::cout << "Failed to open file for writing.\n";
-        }
-    }
-
-    ~FileArchive()
-    {
-        if (!IsStreamValid()) {
-            file_->close();
-        }
-    }
-
-    void operator<<(int& val) const override
-    {
-        if(!IsStreamValid()) return;
-
-        if(IsWrite())
-        {
-            file_->write(reinterpret_cast<char*>(&val), sizeof(val));
-        }
-        else
-        {
-            file_->read(reinterpret_cast<char*>(&val), sizeof(val));
-        }
-    }
-
-    void operator<<(unsigned int& val) const override
-    {
-        if(!IsStreamValid()) return;
-
-        if(IsWrite())
-        {
-            file_->write(reinterpret_cast<char*>(&val), sizeof(val));
-        }
-        else
-        {
-            file_->read(reinterpret_cast<char*>(&val), sizeof(val));
-        }
-    }
-
-    void operator<<(std::string& val) const override
-    {
-        if(!IsStreamValid()) return;
-
-        if(IsWrite())
-        {
-            const int len = val.length() + 1;
-            file_->write(reinterpret_cast<const char*>(&len), sizeof(len));
-            file_->write(val.c_str(), len);
-        }
-        else
-        {
-            int len;
-            file_->read(reinterpret_cast<char*>(&len), sizeof(len));
-
-            val.resize(len, '\0');
-            file_->read(&val[0], len);
-        }
-    }   
+    void operator<<(int& val) const override;
+    void operator<<(unsigned int& val) const override;
+    void operator<<(std::string& val) const override;
 
 protected:
-    void SerializeBuffer(void* data, int bytes) const override
-    {
-        if(!IsStreamValid()) return;
-
-        if(IsWrite())
-        {
-            file_->write(reinterpret_cast<const char*>(&bytes), sizeof(bytes));
-            file_->write(reinterpret_cast<const char*>(data), bytes);
-        }
-        else
-        {
-            int read_bytes = 0;
-            file_->read(reinterpret_cast<char*>(&read_bytes), sizeof(read_bytes));
-            assert(read_bytes == bytes);
-
-            file_->read(reinterpret_cast<char*>(data), bytes);
-        }
-    };
+    void SerializeBuffer(void* data, int bytes) const override;
 
 private:
-    bool IsStreamValid() const
+    inline bool IsStreamValid() const
     {
         return (file_ && *file_);
     }
@@ -207,6 +129,92 @@ private:
 private:
     std::string path_;
     std::unique_ptr<std::fstream> file_;
+};
+
+FileArchive::FileArchive(const std::string& _path, Archive::Mode _mode):
+    Archive(_mode),
+    path_{ _path }
+{
+
+    const int ios_mode = (_mode == Archive::Mode::Read ? std::ios::in : std::ios::out);
+    file_ = std::unique_ptr<std::fstream>(new std::fstream(_path, ios_mode | std::ios::binary));
+    if (!IsStreamValid()) {
+        std::cout << "Failed to open file for writing.\n";
+    }
+}
+
+FileArchive::~FileArchive()
+{
+    if (!IsStreamValid()) {
+        file_->close();
+    }
+}
+
+void FileArchive::operator<<(int& val) const
+{
+    if(!IsStreamValid()) return;
+
+    if(IsWrite())
+    {
+        file_->write(reinterpret_cast<char*>(&val), sizeof(val));
+    }
+    else
+    {
+        file_->read(reinterpret_cast<char*>(&val), sizeof(val));
+    }
+}
+
+void FileArchive::operator<<(unsigned int& val) const
+{
+    if(!IsStreamValid()) return;
+
+    if(IsWrite())
+    {
+        file_->write(reinterpret_cast<char*>(&val), sizeof(val));
+    }
+    else
+    {
+        file_->read(reinterpret_cast<char*>(&val), sizeof(val));
+    }
+}
+
+void FileArchive::operator<<(std::string& val) const
+{
+    if(!IsStreamValid()) return;
+
+    if(IsWrite())
+    {
+        const int len = val.length() + 1;
+        file_->write(reinterpret_cast<const char*>(&len), sizeof(len));
+        file_->write(val.c_str(), len);
+    }
+    else
+    {
+        int len;
+        file_->read(reinterpret_cast<char*>(&len), sizeof(len));
+
+        val.resize(len, '\0');
+        file_->read(&val[0], len);
+    }
+}   
+
+void FileArchive::SerializeBuffer(void* data, int bytes) const
+{
+    if(!IsStreamValid()) return;
+
+    if(IsWrite())
+    {
+        file_->write(reinterpret_cast<const char*>(&bytes), sizeof(bytes));
+        file_->write(reinterpret_cast<const char*>(data), bytes);
+    }
+    else
+    {
+        int read_bytes = 0;
+        file_->read(reinterpret_cast<char*>(&read_bytes), sizeof(read_bytes));
+        assert(read_bytes == bytes);
+
+        file_->read(reinterpret_cast<char*>(data), bytes);
+    }
 };
 
 void Archive::SerializeToFile(ISerializable& _obj, const std::string& _path)
